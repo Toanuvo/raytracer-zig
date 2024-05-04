@@ -1,5 +1,6 @@
 const std = @import("std");
 const fs = std.fs;
+const V = @import("vector.zig");
 
 pub const width = 256;
 pub const height = 256;
@@ -12,7 +13,8 @@ pub fn main() !void {
     const alloc = gpa.allocator();
     const fname = try std.fmt.allocPrint(alloc, "{d}x{d}.ppm", .{ width, height });
     defer alloc.free(fname);
-    const f = try fs.cwd().createFile(fname, .{});
+    const picDir = try fs.cwd().openDir("pics", .{});
+    const f = try picDir.createFile(fname, .{});
     defer f.close();
     const fw = f.writer();
 
@@ -25,15 +27,8 @@ pub fn main() !void {
         for (0..width) |i| {
             const iF: f64 = @floatFromInt(i);
             const jF: f64 = @floatFromInt(j);
-            const r = iF / (width - 1);
-            const g = jF / (height - 1);
-            const b = 0.0;
-
-            const ir: u8 = @intFromFloat(255.999 * r);
-            const ig: u8 = @intFromFloat(255.999 * g);
-            const ib: u8 = @intFromFloat(255.999 * b);
-
-            try fw.print("{d} {d} {d}\n", .{ ir, ig, ib });
+            const pix = V.Vec3{ iF / (width - 1), jF / (height - 1), 0.0 };
+            try V.print(pix, fw);
         }
     }
 }
