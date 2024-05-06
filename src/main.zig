@@ -1,6 +1,9 @@
 const std = @import("std");
+const math = std.math;
 const fs = std.fs;
 const V = @import("vector.zig");
+const H = @import("hittable.zig");
+const HL = @import("hittableList.zig");
 const Ray = @import("ray.zig").Ray;
 
 pub const width: u64 = 400;
@@ -37,7 +40,10 @@ pub fn main() !void {
     defer f.close();
     const fw = f.writer();
 
-    std.debug.print("val: {any}\n", .{viewPortWidth});
+    var world = HL.HittableList{ .objs = HL.HitArrList.init(alloc) };
+    defer world.objs.deinit();
+    try world.append(&H.Sphere.init(V.Vec3{ 0, 0, -1 }, 0.5).hittable);
+    try world.append(&H.Sphere.init(V.Vec3{ 0, -100.5, -1 }, 100).hittable);
 
     try fw.print("P3\n{d} {d}\n255\n", .{ width, height });
 
@@ -50,38 +56,21 @@ pub fn main() !void {
             const ray_direction = pixel_center - camera_center;
             const r = Ray.init(camera_center, ray_direction);
 
-            const pix = ray_color(r);
-            if (i == 0) {
-                std.debug.print("val: {any}\n", .{pix});
-            }
+            const pix = ray_color(r, &world);
             try V.print(pix, fw);
         }
     }
 }
 
-fn ray_color(r: Ray) V.Vec3 {
-    const t = hit_sphere(V.Vec3{ 0, 0, -1 }, 0.5, r);
-    if (t > 0) {
-        const N = V.unit(r.at(t) - V.Vec3{ 0, 0, -1 });
-        return (N + V.sc(1)) / V.sc(2);
+fn ray_color(r: Ray, world: *const HL.HittableList) V.Vec3 {
+    var rec: H.HitRecord = undefined;
+    if (world.hit(r, 0, math.floatMax(f64), &rec)) {
+        return V.sc(0.5) * (rec.norm + V.Vec3{ 1, 1, 1 });
     }
+
     const ud = V.unit(r.dir);
     const a = 0.5 * (ud[1] + 1);
     return V.sc(1.0 - a) * V.Vec3{ 1.0, 1.0, 1.0 } + V.sc(a) * V.Vec3{ 0.5, 0.7, 1.0 };
-}
-
-fn hit_sphere(center: V.Vec3, rad: f64, r: Ray) f64 {
-    const oc = center - r.orig;
-    const a = V.lensq(r.dir);
-    const h = V.dot(r.dir, oc);
-    const c = V.lensq(oc) - rad * rad;
-
-    const discriminant = h * h - a * c;
-    if (discriminant < 0) {
-        return -1;
-    } else {
-        return (h - @sqrt(discriminant)) / a;
-    }
 }
 
 test "simple test" {
