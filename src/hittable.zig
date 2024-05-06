@@ -1,6 +1,6 @@
 const std = @import("std");
 const V = @import("vector.zig");
-const R = @import("ray.zig");
+const Ray = @import("ray.zig");
 const Interval = @import("interval.zig");
 
 pub const HitRecord = struct {
@@ -10,19 +10,19 @@ pub const HitRecord = struct {
     front_face: bool,
 
     const Self = @This();
-    pub fn setFaceNormal(s: *Self, r: R.Ray, outNorm: V.Vec3) void {
+    pub fn setFaceNormal(s: *Self, r: Ray, outNorm: V.Vec3) void {
         s.front_face = V.dot(r.dir, outNorm) < 0;
         s.norm = if (s.front_face) outNorm else -outNorm;
     }
 };
 
-const HitFn = fn (h: *const Hittable, r: R.Ray, ray_t: Interval, hr: *HitRecord) bool;
+const HitFn = fn (h: *const Hittable, r: Ray, ray_t: Interval, hr: *HitRecord) bool;
 
 pub const Hittable = struct {
     hitfn: *const HitFn,
 
     const Self = @This();
-    pub fn hit(s: *const Self, r: R.Ray, ray_t: Interval, hr: *HitRecord) bool {
+    pub fn hit(s: *const Self, r: Ray, ray_t: Interval, hr: *HitRecord) bool {
         return s.hitfn(s, r, ray_t, hr);
     }
 };
@@ -41,7 +41,7 @@ pub const Sphere = struct {
         };
     }
 
-    pub fn hit(hb: *const Hittable, r: R.Ray, ray_t: Interval, rec: *HitRecord) bool {
+    pub fn hit(hb: *const Hittable, r: Ray, ray_t: Interval, rec: *HitRecord) bool {
         const s: *const Self = @alignCast(@fieldParentPtr("hittable", hb));
 
         const oc = s.cent - r.orig;
