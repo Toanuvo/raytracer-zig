@@ -18,3 +18,7 @@ pub fn cont(s: Self, x: f64) bool {
 pub fn surr(s: Self, x: f64) bool {
     return s.min < x and x < s.max;
 }
+
+pub fn clamp(s: Self, x: f64) f64 {
+    return std.math.clamp(x, s.min, s.max);
+}

@@ -5,10 +5,14 @@ const Ray = @import("ray.zig");
 const V = @import("vector.zig");
 const H = @import("hittable.zig");
 const HL = @import("hittableList.zig");
+const U = @import("util.zig");
 const stdout = std.io.getStdOut().writer();
 
-width: u64 = 400,
-aspectRatio: f64 = 16.0 / 9.0,
+width: u64,
+aspectRatio: f64,
+samples_per_pixel: u64,
+
+pixel_sample_scale: V.Vec3 = undefined,
 height: u64 = undefined,
 center: V.Vec3 = undefined, // Camera center
 pixel00_loc: V.Vec3 = undefined, // Location of pixel 0, 0
@@ -21,6 +25,9 @@ fn init(s: *Self) void {
     const wf: f64 = @floatFromInt(s.width);
     const hf: f64 = (wf / s.aspectRatio);
     s.height = @intFromFloat(hf);
+
+    const sf: f64 = @floatFromInt(s.samples_per_pixel);
+    s.pixel_sample_scale = V.sc(1.0 / sf);
 
     const viewPortHeight: f64 = 2;
     const viewPortWidth: f64 = viewPortHeight * (wf / hf);
@@ -50,14 +57,29 @@ pub fn render(s: *Self, writer: anytype, world: *const HL.HittableList) !void {
             try stdout.print("remaining: {d}\n", .{s.height - j});
 
         for (0..s.width) |i| {
-            const pixel_center = s.pixel00_loc + (V.sc(@floatFromInt(i)) * s.pixel_delta_u) + (V.sc(@floatFromInt(j)) * s.pixel_delta_v);
-            const ray_direction = pixel_center - s.center;
-            const r = Ray.init(s.center, ray_direction);
+            var color = V.Vec3{ 0, 0, 0 };
+            for (0..s.samples_per_pixel) |_| {
+                const r = s.get_ray(@floatFromInt(i), @floatFromInt(j));
+                color += ray_color(r, world);
+            }
 
-            const pix = ray_color(r, world);
+            const pix = color * s.pixel_sample_scale;
             try V.print(pix, writer);
         }
     }
+}
+
+pub fn get_ray(s: *Self, i: f64, j: f64) Ray {
+    const offset = sample_square();
+    const pixel_sample = s.pixel00_loc +
+        (V.sc(i + offset[0]) * s.pixel_delta_u) +
+        (V.sc(j + offset[1]) * s.pixel_delta_v);
+
+    return Ray.init(s.center, pixel_sample - s.center);
+}
+
+fn sample_square() V.Vec3 {
+    return V.Vec3{ U.rand.float(f64) - 0.5, U.rand.float(f64) - 0.5, 0 };
 }
 
 pub fn ray_color(r: Ray, world: *const HL.HittableList) V.Vec3 {

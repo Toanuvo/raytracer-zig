@@ -1,5 +1,6 @@
 const std = @import("std");
 const simd = std.simd;
+const Interval = @import("interval.zig");
 
 const Vec = @This();
 pub const Vec3 = @Vector(3, f64);
@@ -35,10 +36,10 @@ pub fn sc(x: f64) Vec3 {
     return @splat(x);
 }
 
-pub fn print(v: Vec3, writer: anytype) !void {
-    const bv = v * sc(255.999);
-    const r: u8 = @intFromFloat(bv[0]);
-    const g: u8 = @intFromFloat(bv[1]);
-    const b: u8 = @intFromFloat(bv[2]);
+pub fn print(rgb: Vec3, writer: anytype) !void {
+    const c = Interval{ .min = 0, .max = 0.999 };
+    const r: u8 = @intFromFloat(256 * c.clamp(rgb[0]));
+    const g: u8 = @intFromFloat(256 * c.clamp(rgb[1]));
+    const b: u8 = @intFromFloat(256 * c.clamp(rgb[2]));
     try writer.print("{d} {d} {d}\n", .{ r, g, b });
 }
