@@ -1,6 +1,7 @@
 const std = @import("std");
 const V = @import("vector.zig");
 const R = @import("ray.zig");
+const Interval = @import("interval.zig");
 
 pub const HitRecord = struct {
     p: V.Vec3,
@@ -15,14 +16,14 @@ pub const HitRecord = struct {
     }
 };
 
-const HitFn = fn (h: *const Hittable, r: R.Ray, ray_tmin: f64, ray_tmax: f64, hr: *HitRecord) bool;
+const HitFn = fn (h: *const Hittable, r: R.Ray, ray_t: Interval, hr: *HitRecord) bool;
 
 pub const Hittable = struct {
     hitfn: *const HitFn,
 
     const Self = @This();
-    pub fn hit(s: *const Self, r: R.Ray, ray_tmin: f64, ray_tmax: f64, hr: *HitRecord) bool {
-        return s.hitfn(s, r, ray_tmin, ray_tmax, hr);
+    pub fn hit(s: *const Self, r: R.Ray, ray_t: Interval, hr: *HitRecord) bool {
+        return s.hitfn(s, r, ray_t, hr);
     }
 };
 
@@ -40,7 +41,7 @@ pub const Sphere = struct {
         };
     }
 
-    pub fn hit(hb: *const Hittable, r: R.Ray, ray_tmin: f64, ray_tmax: f64, rec: *HitRecord) bool {
+    pub fn hit(hb: *const Hittable, r: R.Ray, ray_t: Interval, rec: *HitRecord) bool {
         const s: *const Self = @alignCast(@fieldParentPtr("hittable", hb));
 
         const oc = s.cent - r.orig;
@@ -55,9 +56,9 @@ pub const Sphere = struct {
         const sqrtd = @sqrt(discriminant);
         // Find the nearest root that lies in the acceptable range.
         var root = (h - sqrtd) / a;
-        if (root <= ray_tmin or ray_tmax <= root) {
+        if (!ray_t.surr(root)) {
             root = (h + sqrtd) / a;
-            if (root <= ray_tmin or ray_tmax <= root)
+            if (!ray_t.surr(root))
                 return false;
         }
 

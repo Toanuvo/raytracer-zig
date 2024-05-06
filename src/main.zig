@@ -64,7 +64,7 @@ pub fn main() !void {
 
 fn ray_color(r: Ray, world: *const HL.HittableList) V.Vec3 {
     var rec: H.HitRecord = undefined;
-    if (world.hit(r, 0, math.floatMax(f64), &rec)) {
+    if (world.hit(r, .{ .min = 0, .max = math.floatMax(f64) }, &rec)) {
         return V.sc(0.5) * (rec.norm + V.Vec3{ 1, 1, 1 });
     }
 

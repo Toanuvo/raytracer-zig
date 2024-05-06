@@ -3,6 +3,7 @@ const H = @import("hittable.zig");
 const V = @import("vector.zig");
 const R = @import("ray.zig");
 const Allocator = std.mem.Allocator;
+const Interval = @import("interval.zig");
 pub const HitArrList = std.ArrayList(*const H.Hittable);
 
 pub const HittableList = struct {
@@ -14,13 +15,13 @@ pub const HittableList = struct {
         try s.objs.append(h);
     }
 
-    pub fn hit(s: *const Self, r: R.Ray, ray_tmin: f64, ray_tmax: f64, rec: *H.HitRecord) bool {
+    pub fn hit(s: *const Self, r: R.Ray, ray_t: Interval, rec: *H.HitRecord) bool {
         var temp_rec: H.HitRecord = undefined;
         var hit_anything = false;
-        var closest_so_far = ray_tmax;
+        var closest_so_far = ray_t.max;
 
         for (s.objs.items) |o| {
-            if (o.hit(r, ray_tmin, closest_so_far, &temp_rec)) {
+            if (o.hit(r, .{ .max = closest_so_far, .min = ray_t.min }, &temp_rec)) {
                 hit_anything = true;
                 closest_so_far = temp_rec.t;
                 rec.* = temp_rec;
