@@ -37,6 +37,7 @@ pub fn main() !void {
         .width = width,
         .aspectRatio = aspectRatio,
         .samples_per_pixel = samples_per_pixel,
+        .max_depth = 50,
     };
 
     try cam.render(fw, &world);

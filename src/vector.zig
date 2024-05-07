@@ -28,6 +28,10 @@ pub fn cross(a: Vec3, b: Vec3) Vec3 {
     };
 }
 
+pub fn dup(v: Vec3) Vec3 {
+    return Vec3{ v[0], v[1], v[2] };
+}
+
 pub fn unit(v: Vec3) Vec3 {
     return v / sc(len(v));
 }

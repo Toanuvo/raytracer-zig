@@ -7,8 +7,8 @@ dir: V.Vec3,
 const Self = @This();
 pub fn init(orig: V.Vec3, dir: V.Vec3) Self {
     return .{
-        .orig = orig,
-        .dir = dir,
+        .orig = V.dup(orig),
+        .dir = V.dup(dir),
     };
 }
 
