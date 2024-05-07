@@ -40,10 +40,18 @@ pub fn sc(x: f64) Vec3 {
     return @splat(x);
 }
 
+fn linear_to_gamma(x: f64) f64 {
+    return if (x > 0) @sqrt(x) else 0;
+}
+
+fn real_color_to_byte(c: f64) u8 {
+    const r = Interval{ .min = 0, .max = 0.999 };
+    return @intFromFloat(256 * r.clamp(linear_to_gamma(c)));
+}
+
 pub fn print(rgb: Vec3, writer: anytype) !void {
-    const c = Interval{ .min = 0, .max = 0.999 };
-    const r: u8 = @intFromFloat(256 * c.clamp(rgb[0]));
-    const g: u8 = @intFromFloat(256 * c.clamp(rgb[1]));
-    const b: u8 = @intFromFloat(256 * c.clamp(rgb[2]));
+    const r: u8 = real_color_to_byte(rgb[0]);
+    const g: u8 = real_color_to_byte(rgb[1]);
+    const b: u8 = real_color_to_byte(rgb[2]);
     try writer.print("{d} {d} {d}\n", .{ r, g, b });
 }
