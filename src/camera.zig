@@ -87,9 +87,10 @@ pub fn ray_color(r: Ray, world: *const HL.HittableList, depth: u64) V.Vec3 {
     if (depth <= 0) return V.Vec3{ 0, 0, 0 };
     var rec: H.HitRecord = undefined;
     if (world.hit(r, .{ .min = 0.001, .max = math.floatMax(f64) }, &rec)) {
-        const dir = rec.norm + U.randVUnit();
-        return V.sc(0.5) * ray_color(Ray.init(rec.p, dir), world, depth - 1);
-        //return V.sc(0.5) * (rec.norm + V.Vec3{ 1, 1, 1 });
+        if (rec.mat.scatter(r, &rec)) |screc| {
+            return screc.atten * ray_color(screc.scattered, world, depth - 1);
+        }
+        return V.Vec3{ 0, 0, 0 };
     }
     const ud = V.unit(r.dir);
     const a = 0.5 * (ud[1] + 1);

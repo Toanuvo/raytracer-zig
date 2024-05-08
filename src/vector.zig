@@ -40,6 +40,15 @@ pub fn sc(x: f64) Vec3 {
     return @splat(x);
 }
 
+pub fn near_zero(v: Vec3) bool {
+    const e = sc(1e-8);
+    return 3 == std.simd.countTrues(@abs(v) < e);
+}
+
+pub fn reflect(v: Vec3, n: Vec3) Vec3 {
+    return v - sc(2 * dot(v, n)) * n;
+}
+
 fn linear_to_gamma(x: f64) f64 {
     return if (x > 0) @sqrt(x) else 0;
 }

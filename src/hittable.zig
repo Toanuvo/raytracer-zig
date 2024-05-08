@@ -2,12 +2,14 @@ const std = @import("std");
 const V = @import("vector.zig");
 const Ray = @import("ray.zig");
 const Interval = @import("interval.zig");
+const Mat = @import("material.zig");
 
 pub const HitRecord = struct {
     p: V.Vec3,
     norm: V.Vec3,
     t: f64,
-    front_face: bool,
+    front_face: bool = undefined,
+    mat: *const Mat,
 
     const Self = @This();
     pub fn setFaceNormal(s: *Self, r: Ray, outNorm: V.Vec3) void {
@@ -31,13 +33,15 @@ pub const Sphere = struct {
     cent: V.Vec3,
     rad: f64,
     hittable: Hittable,
+    mat: *const Mat,
 
     const Self = @This();
-    pub fn init(cent: V.Vec3, r: f64) Self {
+    pub fn init(cent: V.Vec3, r: f64, mat: *const Mat) Self {
         return .{
             .cent = cent,
             .rad = r,
             .hittable = .{ .hitfn = &hit },
+            .mat = mat,
         };
     }
 
@@ -62,9 +66,12 @@ pub const Sphere = struct {
                 return false;
         }
 
-        rec.t = root;
-        rec.p = r.at(rec.t);
-        rec.norm = (rec.p - s.cent) / V.sc(s.rad);
+        rec.* = .{
+            .t = root,
+            .p = r.at(root),
+            .norm = (r.at(root) - s.cent) / V.sc(s.rad),
+            .mat = s.mat,
+        };
         const outNorm = (rec.p - s.cent) / V.sc(s.rad);
         rec.setFaceNormal(r, outNorm);
         return true;
