@@ -49,6 +49,13 @@ pub fn reflect(v: Vec3, n: Vec3) Vec3 {
     return v - sc(2 * dot(v, n)) * n;
 }
 
+pub fn refract(uv: Vec3, n: Vec3, eta2: f64) Vec3 {
+    const cos_theta = @min(dot(-uv, n), 1.0);
+    const r_out_perp = sc(eta2) * (uv + sc(cos_theta) * n);
+    const r_out_parallel = sc(-@sqrt(@abs(1.0 - lensq(r_out_perp)))) * n;
+    return r_out_perp + r_out_parallel;
+}
+
 fn linear_to_gamma(x: f64) f64 {
     return if (x > 0) @sqrt(x) else 0;
 }

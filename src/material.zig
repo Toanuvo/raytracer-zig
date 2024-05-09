@@ -66,3 +66,44 @@ pub const Metal = struct {
         } else null;
     }
 };
+
+pub const Dielectric = struct {
+    mat: Material,
+    refIndex: f64,
+
+    const Self = @This();
+
+    pub fn init(refIndex: f64) Self {
+        return .{
+            .refIndex = refIndex,
+            .mat = .{ .scatterfn = &Self.scatter },
+        };
+    }
+
+    pub fn scatter(mat: *const Material, in: Ray, rec: *H.HitRecord) ?ScatterRec {
+        const s: *const Self = @alignCast(@fieldParentPtr("mat", mat));
+
+        const ri = if (rec.front_face) (1.0 / s.refIndex) else s.refIndex;
+        const unit_direction = V.unit(in.dir);
+
+        const cos_theta = @min(V.dot(-unit_direction, rec.norm), 1.0);
+        const sin_theta = @sqrt(1.0 - cos_theta * cos_theta);
+        const reflect = ri * sin_theta > 1.0;
+
+        const dir = if (reflect or reflectance(cos_theta, ri) > U.randFloat())
+            V.reflect(unit_direction, rec.norm)
+        else
+            V.refract(unit_direction, rec.norm, ri);
+
+        return .{
+            .atten = V.Vec3{ 1.0, 1.0, 1.0 },
+            .scattered = Ray.init(rec.p, dir),
+        };
+    }
+
+    fn reflectance(cos: f64, refraction_idx: f64) f64 {
+        var r0 = (1 - refraction_idx) / (1 + refraction_idx);
+        r0 = r0 * r0;
+        return r0 + (1 - r0) * std.math.pow(f64, (1 - cos), 5);
+    }
+};

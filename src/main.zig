@@ -32,12 +32,15 @@ pub fn main() !void {
     var world = HL.HittableList{ .objs = HL.HitArrList.init(alloc) };
     const material_ground = Mat.Lambertian.init(V.Vec3{ 0.8, 0.8, 0.0 });
     const material_center = Mat.Lambertian.init(V.Vec3{ 0.1, 0.2, 0.5 });
-    const material_left = Mat.Metal.init(V.Vec3{ 0.8, 0.8, 0.8 }, 0.3);
+    //const material_left = Mat.Metal.init(V.Vec3{ 0.8, 0.8, 0.8 }, 0.3);
+    const material_left = Mat.Dielectric.init(1.5);
+    const material_bubble = Mat.Dielectric.init(1.0 / 1.5);
     const material_right = Mat.Metal.init(V.Vec3{ 0.8, 0.6, 0.2 }, 1);
 
     try world.append(&H.Sphere.init(V.Vec3{ 0.0, -100.5, -1.0 }, 100.0, &material_ground.mat).hittable);
     try world.append(&H.Sphere.init(V.Vec3{ 0.0, 0.0, -1.2 }, 0.5, &material_center.mat).hittable);
     try world.append(&H.Sphere.init(V.Vec3{ -1.0, 0.0, -1.0 }, 0.5, &material_left.mat).hittable);
+    try world.append(&H.Sphere.init(V.Vec3{ -1.0, 0.0, -1.0 }, 0.4, &material_bubble.mat).hittable);
     try world.append(&H.Sphere.init(V.Vec3{ 1.0, 0.0, -1.0 }, 0.5, &material_right.mat).hittable);
 
     defer world.objs.deinit();
