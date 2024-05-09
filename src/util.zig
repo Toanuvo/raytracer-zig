@@ -31,6 +31,15 @@ pub fn randVrange(min: f64, max: f64) V.Vec3 {
     return V.Vec3{ randRange(min, max), randRange(min, max), randRange(min, max) };
 }
 
+pub fn randVinUnitDisk() V.Vec3 {
+    while (true) {
+        const p = V.Vec3{ randRange(-1, 1), randRange(-1, 1), 0 };
+        if (V.lensq(p) < 1) {
+            return p;
+        }
+    }
+}
+
 pub fn randVinUnitSphere() V.Vec3 {
     while (true) {
         const p = randVrange(-1, 1);

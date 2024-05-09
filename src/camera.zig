@@ -16,7 +16,11 @@ vfov: f64,
 lookfrom: V.Vec3, // Point camera is looking from
 lookat: V.Vec3, // Point camera is looking at
 vup: V.Vec3, // Camera-relative "up" direction
+defocus_angle: f64,
+focus_dist: f64,
 
+defocus_disk_u: V.Vec3 = undefined,
+defocus_disk_v: V.Vec3 = undefined,
 u: V.Vec3 = undefined,
 v: V.Vec3 = undefined,
 w: V.Vec3 = undefined,
@@ -39,10 +43,9 @@ fn init(s: *Self) void {
     const sf: f64 = @floatFromInt(s.samples_per_pixel);
     s.pixel_sample_scale = V.sc(1.0 / sf);
 
-    const focal_length = V.len(s.lookfrom - s.lookat);
     const theta = math.degreesToRadians(s.vfov);
     const h = math.tan(theta / 2.0);
-    const viewPortHeight = 2 * h * focal_length;
+    const viewPortHeight = 2 * h * s.focus_dist;
     const viewPortWidth: f64 = viewPortHeight * (wf / hf);
 
     s.w = V.unit(s.lookfrom - s.lookat);
@@ -53,12 +56,17 @@ fn init(s: *Self) void {
     const viewport_u = V.sc(viewPortWidth) * s.u;
     const viewport_v = V.sc(viewPortHeight) * -s.v;
 
+    // Calculate the camera defocus disk basis vectors.
+    const defocus_radius = V.sc(s.focus_dist * math.tan(math.degreesToRadians(s.defocus_angle / 2)));
+    s.defocus_disk_u = s.u * defocus_radius;
+    s.defocus_disk_v = s.v * defocus_radius;
+
     // Calculate the horizontal and vertical delta vectors from pixel to pixel.
     s.pixel_delta_u = viewport_u / V.sc(wf);
     s.pixel_delta_v = viewport_v / V.sc(hf);
 
     // Calculate the location of the upper left pixel.
-    const viewport_upper_left = s.center - (V.sc(focal_length) * s.w) - viewport_u / V.sc(2) - viewport_v / V.sc(2);
+    const viewport_upper_left = s.center - (V.sc(s.focus_dist) * s.w) - viewport_u / V.sc(2) - viewport_v / V.sc(2);
     s.pixel00_loc = viewport_upper_left + V.sc(0.5) * (s.pixel_delta_u + s.pixel_delta_v);
 }
 
@@ -85,12 +93,19 @@ pub fn render(s: *Self, writer: anytype, world: *const HL.HittableList) !void {
 }
 
 pub fn get_ray(s: *Self, i: f64, j: f64) Ray {
+    const ray_origin = if (s.defocus_angle <= 0) s.center else s.defocus_disk_sample();
     const offset = sample_square();
     const pixel_sample = s.pixel00_loc +
         (V.sc(i + offset[0]) * s.pixel_delta_u) +
         (V.sc(j + offset[1]) * s.pixel_delta_v);
 
-    return Ray.init(s.center, pixel_sample - s.center);
+    return Ray.init(ray_origin, pixel_sample - ray_origin);
+}
+
+fn defocus_disk_sample(s: *Self) V.Vec3 {
+    // Returns a random point in the camera defocus disk.
+    const p = U.randVinUnitDisk();
+    return s.center + (V.sc(p[0]) * s.defocus_disk_u) + (V.sc(p[1]) * s.defocus_disk_v);
 }
 
 fn sample_square() V.Vec3 {
