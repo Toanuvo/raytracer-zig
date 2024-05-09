@@ -12,7 +12,14 @@ width: u64,
 aspectRatio: f64,
 samples_per_pixel: u64,
 max_depth: u64,
+vfov: f64,
+lookfrom: V.Vec3, // Point camera is looking from
+lookat: V.Vec3, // Point camera is looking at
+vup: V.Vec3, // Camera-relative "up" direction
 
+u: V.Vec3 = undefined,
+v: V.Vec3 = undefined,
+w: V.Vec3 = undefined,
 pixel_sample_scale: V.Vec3 = undefined,
 height: u64 = undefined,
 center: V.Vec3 = undefined, // Camera center
@@ -27,24 +34,31 @@ fn init(s: *Self) void {
     const hf: f64 = (wf / s.aspectRatio);
     s.height = @intFromFloat(hf);
 
+    s.center = s.lookfrom;
+
     const sf: f64 = @floatFromInt(s.samples_per_pixel);
     s.pixel_sample_scale = V.sc(1.0 / sf);
 
-    const viewPortHeight: f64 = 2;
+    const focal_length = V.len(s.lookfrom - s.lookat);
+    const theta = math.degreesToRadians(s.vfov);
+    const h = math.tan(theta / 2.0);
+    const viewPortHeight = 2 * h * focal_length;
     const viewPortWidth: f64 = viewPortHeight * (wf / hf);
-    const focal_length = 1.0;
-    s.center = V.Vec3{ 0, 0, 0 };
+
+    s.w = V.unit(s.lookfrom - s.lookat);
+    s.u = V.unit(V.cross(s.vup, s.w));
+    s.v = V.cross(s.w, s.u);
 
     // Calculate the vectors across the horizontal and down the vertical viewport edges.
-    const viewport_u = V.Vec3{ viewPortWidth, 0, 0 };
-    const viewport_v = V.Vec3{ 0, -viewPortHeight, 0 };
+    const viewport_u = V.sc(viewPortWidth) * s.u;
+    const viewport_v = V.sc(viewPortHeight) * -s.v;
 
     // Calculate the horizontal and vertical delta vectors from pixel to pixel.
     s.pixel_delta_u = viewport_u / V.sc(wf);
     s.pixel_delta_v = viewport_v / V.sc(hf);
 
     // Calculate the location of the upper left pixel.
-    const viewport_upper_left = s.center - V.Vec3{ 0, 0, focal_length } - viewport_u / V.sc(2) - viewport_v / V.sc(2);
+    const viewport_upper_left = s.center - (V.sc(focal_length) * s.w) - viewport_u / V.sc(2) - viewport_v / V.sc(2);
     s.pixel00_loc = viewport_upper_left + V.sc(0.5) * (s.pixel_delta_u + s.pixel_delta_v);
 }
 

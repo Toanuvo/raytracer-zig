@@ -52,6 +52,10 @@ pub fn main() !void {
         .aspectRatio = aspectRatio,
         .samples_per_pixel = samples_per_pixel,
         .max_depth = 50,
+        .vfov = 90,
+        .lookfrom = V.Vec3{ -2, 2, 1 },
+        .lookat = V.Vec3{ 0, 0, -1 },
+        .vup = V.Vec3{ 0, 1, 0 },
     };
 
     try cam.render(fw, &world);
