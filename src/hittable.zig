@@ -2,7 +2,7 @@ const std = @import("std");
 const V = @import("vector.zig");
 const Ray = @import("ray.zig");
 const Interval = @import("interval.zig");
-const Mat = @import("material.zig");
+const Mat = @import("material.zig").Mat;
 
 pub const HitRecord = struct {
     p: V.Vec3,
@@ -30,9 +30,9 @@ pub const Hittable = struct {
 };
 
 pub const Sphere = struct {
+    hittable: Hittable,
     cent: V.Vec3,
     rad: f64,
-    hittable: Hittable,
     mat: *const Mat,
 
     const Self = @This();

@@ -5,9 +5,14 @@ pub var rand: std.Random = undefined;
 
 const RandLen = 2 << 10;
 var RandBuf: [RandLen]f64 = undefined;
-var i: u64 = RandLen;
+
+const AI = std.atomic.Value(usize);
+var i: AI = AI.init(RandLen);
 
 pub fn randFloat() f64 {
+    return rand.float(f64);
+}
+pub fn _randFloat() f64 {
     if (i >= RandLen) {
         for (&RandBuf) |*v| {
             v.* = rand.float(f64);

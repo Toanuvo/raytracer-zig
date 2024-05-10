@@ -1,5 +1,9 @@
 const std = @import("std");
 const math = std.math;
+const mem = std.mem;
+const Allocator = mem.Allocator;
+const Thread = std.Thread;
+const config = @import("config");
 
 const Ray = @import("ray.zig");
 const V = @import("vector.zig");
@@ -18,6 +22,7 @@ lookat: V.Vec3, // Point camera is looking at
 vup: V.Vec3, // Camera-relative "up" direction
 defocus_angle: f64,
 focus_dist: f64,
+alloc: Allocator,
 
 defocus_disk_u: V.Vec3 = undefined,
 defocus_disk_v: V.Vec3 = undefined,
@@ -70,10 +75,68 @@ fn init(s: *Self) void {
     s.pixel00_loc = viewport_upper_left + V.sc(0.5) * (s.pixel_delta_u + s.pixel_delta_v);
 }
 
-pub fn render(s: *Self, writer: anytype, world: *const HL.HittableList) !void {
-    s.init();
+const TdCtx = struct {
+    cam: *Self,
+    writer: std.io.AnyWriter,
+    world: HL.HittableList,
+    output: [][]u8,
+    rows: []usize,
+};
 
+fn renderRow(
+    s: *Self,
+    output: [][]u8,
+    world: HL.HittableList,
+    row: usize,
+    count: usize,
+) !void {
+    var buf = try std.ArrayList(u8).initCapacity(s.alloc, s.width * 5);
+    //defer buf.deinit();
+
+    for (row..row + count) |j| {
+        for (0..s.width) |i| {
+            var color = V.Vec3{ 0, 0, 0 };
+            for (0..s.samples_per_pixel) |_| {
+                const r = s.get_ray(@floatFromInt(i), @floatFromInt(j));
+                color += ray_color(r, world, s.max_depth);
+            }
+
+            const pix = color * s.pixel_sample_scale;
+            try V.print(pix, buf.writer());
+        }
+        output[j] = try buf.toOwnedSlice();
+    }
+}
+
+pub fn renderThreaded(s: *Self, writer: anytype, world: HL.HittableList) !void {
+    const ts = try std.Thread.getCpuCount() - 1;
+    const per = s.height / ts;
+    const extra = s.height % ts;
+
+    const tds = try s.alloc.alloc(Thread, ts);
+    const output = try s.alloc.alloc([]u8, s.height);
+
+    for (tds, 0..) |*td, i| {
+        const count = if (i == ts - 1) per + extra else per;
+        td.* = try Thread.spawn(.{}, renderRow, .{ s, output, world, per * i, count });
+    }
+    for (tds) |t| {
+        t.join();
+    }
+
+    for (output) |buf| {
+        try writer.writeAll(buf);
+    }
+}
+
+pub fn render(s: *Self, writer: anytype, world: HL.HittableList) !void {
+    s.init();
     try writer.print("P3\n{d} {d}\n255\n", .{ s.width, s.height });
+
+    if (config.threads) {
+        try s.renderThreaded(writer, world);
+        return;
+    }
 
     for (0..s.height) |j| {
         if (j % 10 == 0)
@@ -112,7 +175,7 @@ fn sample_square() V.Vec3 {
     return V.Vec3{ U.randFloat() - 0.5, U.randFloat() - 0.5, 0 };
 }
 
-pub fn ray_color(r: Ray, world: *const HL.HittableList, depth: u64) V.Vec3 {
+pub fn ray_color(r: Ray, world: HL.HittableList, depth: u64) V.Vec3 {
     if (depth <= 0) return V.Vec3{ 0, 0, 0 };
     var rec: H.HitRecord = undefined;
     if (world.hit(r, .{ .min = 0.001, .max = math.floatMax(f64) }, &rec)) {

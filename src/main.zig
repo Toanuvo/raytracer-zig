@@ -1,5 +1,5 @@
 const std = @import("std");
-const math = std.math;
+const math = std;
 const fs = std.fs;
 const V = @import("vector.zig");
 const H = @import("hittable.zig");
@@ -7,20 +7,20 @@ const HL = @import("hittableList.zig");
 const Ray = @import("ray.zig");
 const Cam = @import("camera.zig");
 const U = @import("util.zig");
-const Mat = @import("material.zig");
+const M = @import("material.zig");
 
-pub const width: u64 = 600;
+pub const width: u64 = 400;
 pub const aspectRatio: f64 = 16.0 / 9.0;
 pub const height: u64 = @intFromFloat(width / aspectRatio);
-pub const samples_per_pixel = 100;
+pub const samples_per_pixel = 50;
 
 const stdout = std.io.getStdOut().writer();
 
 pub fn main() !void {
     var r = std.Random.DefaultPrng.init(@intCast(std.time.microTimestamp()));
     U.rand = r.random();
-    var gpa = std.heap.GeneralPurposeAllocator(.{ .safety = true }){};
-    defer _ = gpa.detectLeaks();
+    var gpa = std.heap.GeneralPurposeAllocator(.{ .safety = false }){};
+    //defer _ = gpa.detectLeaks();
     const alloc = gpa.allocator();
     const fname = try std.fmt.allocPrint(alloc, "{d}x{d}.ppm", .{ width, height });
     defer alloc.free(fname);
@@ -29,23 +29,56 @@ pub fn main() !void {
     defer f.close();
     const fw = f.writer();
 
-    var world = HL.HittableList{ .objs = HL.HitArrList.init(alloc) };
-    const material_ground = Mat.Lambertian.init(V.Vec3{ 0.8, 0.8, 0.0 });
-    const material_center = Mat.Lambertian.init(V.Vec3{ 0.1, 0.2, 0.5 });
-    //const material_left = Mat.Metal.init(V.Vec3{ 0.8, 0.8, 0.8 }, 0.3);
-    const material_left = Mat.Dielectric.init(1.5);
-    const material_bubble = Mat.Dielectric.init(1.0 / 1.5);
-    const material_right = Mat.Metal.init(V.Vec3{ 0.8, 0.6, 0.2 }, 1);
+    var world = try HL.HittableStorage(&[_]type{H.Sphere}).init(alloc);
+    var mats = try std.ArrayList(M.Mat).initCapacity(alloc, 500);
 
-    try world.append(&H.Sphere.init(V.Vec3{ 0.0, -100.5, -1.0 }, 100.0, &material_ground.mat).hittable);
-    try world.append(&H.Sphere.init(V.Vec3{ 0.0, 0.0, -1.2 }, 0.5, &material_center.mat).hittable);
-    try world.append(&H.Sphere.init(V.Vec3{ -1.0, 0.0, -1.0 }, 0.5, &material_left.mat).hittable);
-    try world.append(&H.Sphere.init(V.Vec3{ -1.0, 0.0, -1.0 }, 0.4, &material_bubble.mat).hittable);
-    try world.append(&H.Sphere.init(V.Vec3{ 1.0, 0.0, -1.0 }, 0.5, &material_right.mat).hittable);
+    const ground_material = mats.addOneAssumeCapacity();
+    ground_material.* = (.{ .Lambertian = .{ .albedo = V.Vec3{ 0.5, 0.5, 0.5 } } });
+    try world.append(H.Sphere.init(V.Vec3{ 0, -1000, 0 }, 1000, ground_material));
 
-    defer world.objs.deinit();
-    //try world.append(&H.Sphere.init(V.Vec3{ 0, 0, -1 }, 0.5).hittable);
-    //try world.append(&H.Sphere.init(V.Vec3{ 0, -100.5, -1 }, 100).hittable);
+    for (0..22) |ai| {
+        var a: f64 = @floatFromInt(ai);
+        a -= 11;
+        for (0..22) |bi| {
+            var b: f64 = @floatFromInt(bi);
+            b -= 11;
+
+            const rad = 0.2;
+            const choose_mat = U.randFloat();
+            const center = V.Vec3{ a + 0.9 * U.randFloat(), rad, b + 0.9 * U.randFloat() };
+            if (V.len(center - V.Vec3{ 4, rad, 0 }) > 0.9) {
+                if (choose_mat < 0.8) {
+                    // diffuse
+                    const albedo = U.randV() * U.randV();
+                    const mat = mats.addOneAssumeCapacity();
+                    mat.* = (.{ .Lambertian = .{ .albedo = albedo } });
+                    try world.append(H.Sphere.init(center, rad, mat));
+                } else if (choose_mat < 0.95) {
+                    // metal
+                    const albedo = U.randVrange(0.5, 1);
+                    const fuzz = U.randRange(0, 0.5);
+                    const sphere_material = mats.addOneAssumeCapacity();
+                    sphere_material.* = (.{ .Metal = .{ .albedo = albedo, .fuzz = V.sc(fuzz) } });
+                    try world.append(H.Sphere.init(center, rad, sphere_material));
+                } else {
+                    // glass
+                    const sphere_material = mats.addOneAssumeCapacity();
+                    sphere_material.* = (.{ .Dielectric = .{ .refIndex = 1.5 } });
+                    try world.append(H.Sphere.init(center, rad, sphere_material));
+                }
+            }
+        }
+    }
+
+    const material1 = mats.addOneAssumeCapacity();
+    material1.* = .{ .Dielectric = .{ .refIndex = 1.5 } };
+    try world.append(H.Sphere.init(V.Vec3{ 0, 1, 0 }, 1.0, material1));
+    const material2 = mats.addOneAssumeCapacity();
+    material2.* = (.{ .Lambertian = .{ .albedo = V.Vec3{ 0.4, 0.2, 0.1 } } });
+    try world.append(H.Sphere.init(V.Vec3{ -4, 1, 0 }, 1.0, material2));
+    const material3 = mats.addOneAssumeCapacity();
+    material3.* = (.{ .Metal = .{ .albedo = V.Vec3{ 0.7, 0.6, 0.5 }, .fuzz = V.sc(0.0) } });
+    try world.append(H.Sphere.init(V.Vec3{ 4, 1, 0 }, 1.0, material3));
 
     var cam = Cam{
         .width = width,
@@ -53,19 +86,15 @@ pub fn main() !void {
         .samples_per_pixel = samples_per_pixel,
         .max_depth = 50,
         .vfov = 20,
-        .lookfrom = V.Vec3{ -2, 2, 1 },
-        .lookat = V.Vec3{ 0, 0, -1 },
+        .lookfrom = V.Vec3{ 13, 2, 3 },
+        .lookat = V.Vec3{ 0, 0, 0 },
         .vup = V.Vec3{ 0, 1, 0 },
-        .defocus_angle = 10.0,
-        .focus_dist = 3.4,
+        .defocus_angle = 0.6,
+        .focus_dist = 10.0,
+        .alloc = alloc,
     };
 
-    try cam.render(fw, &world);
-}
-
-test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.allocator);
-    defer list.deinit(); // try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
+    const objs = try world.hittables();
+    try stdout.print("redering {d} objs at {d}x{d}", .{ objs.objs.len, height, width });
+    try cam.render(fw, objs);
 }
